@@ -23,6 +23,17 @@ type Story = {
   }
 }
 
+type StoryRow = {
+  id: string
+  user_id: string
+  content: string
+  created_at: string
+  user: Array<{
+    username: string | null
+    avatar_url: string | null
+  }> | null
+}
+
 export default function StoriesPage() {
   const [stories, setStories] = useState<Story[]>([])
   const [content, setContent] = useState('')
@@ -54,7 +65,17 @@ export default function StoriesPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setStories(data)
+      const normalizedStories: Story[] = ((data ?? []) as StoryRow[]).map((item) => ({
+        id: item.id,
+        user_id: item.user_id,
+        content: item.content,
+        created_at: item.created_at,
+        user: {
+          username: item.user?.[0]?.username ?? 'Unknown',
+          avatar_url: item.user?.[0]?.avatar_url ?? null,
+        },
+      }))
+      setStories(normalizedStories)
     } catch (error) {
       console.error('Error fetching stories:', error)
       setError('Failed to load stories. Please try again later.')

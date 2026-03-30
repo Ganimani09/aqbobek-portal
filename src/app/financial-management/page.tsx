@@ -32,7 +32,7 @@ export default function FinancialManagementPage() {
   const [amount, setAmount] = useState('')
   const [paymentType, setPaymentType] = useState('salary')
   const [balance, setBalance] = useState(0)
-  const { user, userRole } = useAuth()
+  const { userRole } = useAuth()
   const { toast } = useToast()
 
   useEffect(() => {
@@ -59,13 +59,19 @@ export default function FinancialManagementPage() {
   const fetchStaff = async () => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, username as name, role')
+      .select('id, username, role')
       .in('role', ['teacher', 'staff'])
 
     if (error) {
       console.error('Error fetching staff:', error)
     } else {
-      setStaff(data)
+      setStaff(
+        (data ?? []).map((item) => ({
+          id: item.id,
+          name: item.username ?? 'Unknown',
+          role: item.role,
+        }))
+      )
     }
   }
 

@@ -30,9 +30,7 @@ export default function LoginPage() {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error(
-        'Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY are required.'
-      )
+      return null
     }
 
     return createClient(supabaseUrl, supabaseAnonKey)
@@ -42,6 +40,11 @@ export default function LoginPage() {
     event.preventDefault()
     setLoading(true)
     setErrorMessage('')
+    if (!supabase) {
+      setErrorMessage('Сервис авторизации не настроен. Проверьте переменные окружения Supabase.')
+      setLoading(false)
+      return
+    }
 
     const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
       email,

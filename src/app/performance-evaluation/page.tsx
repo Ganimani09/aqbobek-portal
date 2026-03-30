@@ -59,13 +59,19 @@ export default function PerformanceEvaluationPage() {
   const fetchUsers = async () => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, username as name, role')
+      .select('id, username, role')
       .in('role', ['teacher', 'student'])
 
     if (error) {
       console.error('Error fetching users:', error)
     } else {
-      setUsers(data)
+      setUsers(
+        (data ?? []).map((item) => ({
+          id: item.id,
+          name: item.username ?? 'Unknown',
+          role: item.role,
+        }))
+      )
     }
   }
 

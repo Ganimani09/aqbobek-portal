@@ -39,13 +39,18 @@ export default function GradeBookPage() {
   const fetchStudents = async () => {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, username as name')
+      .select('id, username')
       .eq('role', 'student')
 
     if (error) {
       console.error('Error fetching students:', error)
     } else {
-      setStudents(data)
+      setStudents(
+        (data ?? []).map((item) => ({
+          id: item.id,
+          name: item.username ?? 'Unknown',
+        }))
+      )
     }
   }
 

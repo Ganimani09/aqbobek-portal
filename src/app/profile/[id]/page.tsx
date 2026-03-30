@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,8 @@ type UserProfile = {
   following_count: number;
 };
 
-export default function ProfilePage({ params }: { params: { id: string } }) {
+export default function ProfilePage() {
+  const params = useParams<{ id: string }>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,11 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const { id } = params; // Directly destructure params
+        const id = params?.id;
+        if (!id) {
+          setError('Profile ID is missing.');
+          return;
+        }
         await fetchProfile(id);
 
         if (user) {
@@ -41,7 +47,7 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
       }
     };
     fetchData();
-  }, [params, user]);
+  }, [params?.id, user]);
 
   const fetchProfile = async (id: string) => {
     setIsLoading(true);
