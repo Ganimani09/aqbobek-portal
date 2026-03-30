@@ -8,22 +8,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
-type UserRole = 'student' | 'teacher' | 'parent' | 'admin'
+type RegisterRole = 'student' | 'teacher' | 'parent'
 
-const roleRedirectMap: Record<UserRole, string> = {
-  student: '/student/dashboard',
-  teacher: '/teacher/dashboard',
-  parent: '/parent/dashboard',
-  admin: '/admin/dashboard',
-}
-
-export default function LoginPage() {
+export default function RegisterPage() {
   const router = useRouter()
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState<RegisterRole | ''>('')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const supabase = useMemo(() => {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -40,41 +37,56 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setLoading(true)
     setErrorMessage('')
+    setSuccessMessage('')
 
-    const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+    if (!role) {
+      setErrorMessage('Выберите роль перед регистрацией.')
+      return
+    }
+
+    setLoading(true)
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+          role,
+        },
+      },
     })
 
-    if (signInError || !authData.user) {
-      setErrorMessage(signInError?.message ?? 'Не удалось выполнить вход. Попробуйте снова.')
+    if (signUpError) {
+      setErrorMessage(signUpError.message)
       setLoading(false)
       return
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', authData.user.id)
-      .single()
+    const userId = signUpData.user?.id
 
-    if (profileError || !profile?.role) {
-      setErrorMessage('Профиль пользователя не найден или не содержит роль.')
+    if (!userId) {
+      setErrorMessage('Пользователь создан некорректно. Попробуйте снова.')
       setLoading(false)
       return
     }
 
-    const target = roleRedirectMap[profile.role as UserRole]
+    const { error: profileError } = await supabase.from('profiles').insert({
+      id: userId,
+      full_name: fullName,
+      role,
+    })
 
-    if (!target) {
-      setErrorMessage('Неизвестная роль пользователя. Обратитесь к администратору.')
+    if (profileError) {
+      setErrorMessage(profileError.message)
       setLoading(false)
       return
     }
 
-    router.replace(target)
+    setSuccessMessage('Регистрация успешна! Теперь войдите в систему.')
+    setLoading(false)
+    router.push('/login')
   }
 
   return (
@@ -86,11 +98,24 @@ export default function LoginPage() {
             Aqbobek Lyceum Portal
           </CardTitle>
           <CardDescription className="text-blue-700">
-            Войдите в аккаунт, чтобы продолжить
+            Создайте аккаунт для доступа к школьному порталу
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">ФИО</Label>
+              <Input
+                id="fullName"
+                type="text"
+                placeholder="Введите полное имя"
+                value={fullName}
+                onChange={(event) => setFullName(event.target.value)}
+                required
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -109,25 +134,41 @@ export default function LoginPage() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Введите пароль"
-                autoComplete="current-password"
+                placeholder="Минимум 6 символов"
+                autoComplete="new-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
+                minLength={6}
               />
             </div>
 
+            <div className="space-y-2">
+              <Label>Роль</Label>
+              <Select value={role} onValueChange={(value) => setRole(value as RegisterRole)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите роль" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="student">Ученик</SelectItem>
+                  <SelectItem value="teacher">Учитель</SelectItem>
+                  <SelectItem value="parent">Родитель</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {errorMessage ? <p className="text-sm text-red-600">{errorMessage}</p> : null}
+            {successMessage ? <p className="text-sm text-emerald-700">{successMessage}</p> : null}
 
             <Button type="submit" className="w-full bg-blue-700 hover:bg-blue-800" disabled={loading}>
-              {loading ? 'Входим...' : 'Войти'}
+              {loading ? 'Создаем аккаунт...' : 'Зарегистрироваться'}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-slate-700">
-            Нет аккаунта?{' '}
-            <Link href="/register" className="font-medium text-blue-700 hover:text-blue-900 hover:underline">
-              Зарегистрироваться
+            Уже есть аккаунт?{' '}
+            <Link href="/login" className="font-medium text-blue-700 hover:text-blue-900 hover:underline">
+              Войти
             </Link>
           </p>
         </CardContent>
@@ -135,4 +176,3 @@ export default function LoginPage() {
     </main>
   )
 }
-
