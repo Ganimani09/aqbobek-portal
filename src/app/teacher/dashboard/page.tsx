@@ -63,15 +63,15 @@ export default function TeacherDashboardPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 p-4 md:p-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        
+
         {/* Заголовок страницы */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-blue-900">Учитель Айгуль — Математика</h1>
             <p className="mt-1 font-medium text-blue-700/80">Панель управления классом</p>
           </div>
-          <Button 
-            onClick={handleGenerateReport} 
+          <Button
+            onClick={handleGenerateReport}
             disabled={loading}
             className="flex items-center gap-2 bg-indigo-600 font-medium text-white shadow-md transition-all hover:bg-indigo-700"
           >
@@ -106,7 +106,7 @@ export default function TeacherDashboardPage() {
           <CardHeader>
             <CardTitle className="text-blue-900">Успеваемость: 10А класс</CardTitle>
             <CardDescription className="text-blue-900/60">
-              Цветовые индикаторы: Зелёный (отлично/хорошо), Жёлтый (в зоне риска < 4), Красный (критически низкий < 3.5)
+              Цветовые индикаторы: Зелёный (отлично/хорошо), Жёлтый (в зоне риска &lt; 4), Красный (критически низкий &lt; 3.5)
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -124,7 +124,7 @@ export default function TeacherDashboardPage() {
                   {studentsData.map((student) => {
                     const avgStr = (student.grades.reduce((a, b) => a + b, 0) / student.grades.length).toFixed(1)
                     const avg = parseFloat(avgStr)
-                    
+
                     // Логика цвета индикатора
                     const isCritical = avg < 3.5
                     const isWarning = avg >= 3.5 && avg < 4
@@ -136,14 +136,13 @@ export default function TeacherDashboardPage() {
                         <td className="px-4 py-4">
                           <div className="flex flex-wrap gap-1.5">
                             {student.grades.map((grade, gIdx) => (
-                              <span 
-                                key={gIdx} 
+                              <span
+                                key={gIdx}
                                 className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium
-                                  ${
-                                    grade === 5 ? 'bg-green-100 text-green-700' : 
-                                    grade === 4 ? 'bg-blue-100 text-blue-700' : 
-                                    grade === 3 ? 'bg-amber-100 text-amber-700' :
-                                    'bg-red-100 text-red-700'
+                                  ${grade === 5 ? 'bg-green-100 text-green-700' :
+                                    grade === 4 ? 'bg-blue-100 text-blue-700' :
+                                      grade === 3 ? 'bg-amber-100 text-amber-700' :
+                                        'bg-red-100 text-red-700'
                                   }
                                 `}
                               >
