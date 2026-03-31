@@ -72,11 +72,11 @@ export default function LoginPage() {
 
     const role = profile?.role
 
-    if (role === 'admin') window.location.href = '/admin/dashboard'
-    else if (role === 'teacher') window.location.href = '/teacher/dashboard'
-    else if (role === 'student') window.location.href = '/student/dashboard'
-    else if (role === 'parent') window.location.href = '/parent/dashboard'
-    else window.location.href = '/dashboard'
+    if (role === 'admin' || role === 'staff' || role === 'principal') router.push('/admin/dashboard')
+    else if (role === 'teacher') router.push('/teacher/dashboard')
+    else if (role === 'student') router.push('/student/dashboard')
+    else if (role === 'parent') router.push('/parent/dashboard')
+    else router.push('/')
   }
 
   return (
