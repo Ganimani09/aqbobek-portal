@@ -1,241 +1,133 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Sparkles, Calendar, TrendingUp, Info, Clock } from 'lucide-react'
+import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts'
 
-type SubjectGrade = {
-  subject: string
-  grades: number[]
-  average: number
-  trend: 'up' | 'down' | 'stable'
-}
-
-type StudentGradesResponse = {
-  student: string
-  class: string
-  grades: SubjectGrade[]
-  totalPoints: number
-  rank: number
-  totalStudents: number
-}
-
-type EventRow = {
-  id: string | number
-  title: string
-  date: string
-  location?: string | null
-}
-
-type ChartPoint = {
-  lesson: string
-  grade: number
-}
-
-const fallbackEvents: EventRow[] = [
-  { id: 1, title: 'Родительское собрание 10А', date: '2026-04-05', location: 'Актовый зал' },
-  { id: 2, title: 'Олимпиада по математике', date: '2026-04-09', location: 'Кабинет 203' },
-  { id: 3, title: 'День открытых дверей', date: '2026-04-12', location: 'Главный корпус' },
+// Mock data
+const gpaData = [
+  { week: 'Нед 1', gpa: 4.0 },
+  { week: 'Нед 2', gpa: 4.1 },
+  { week: 'Нед 3', gpa: 3.9 },
+  { week: 'Нед 4', gpa: 4.2 },
+  { week: 'Нед 5', gpa: 4.1 },
+  { week: 'Нед 6', gpa: 4.2 },
 ]
 
-function flattenForMonthlyChart(subjects: SubjectGrade[]): ChartPoint[] {
-  const timeline = subjects.flatMap((subject) =>
-    subject.grades.map((grade, index) => ({
-      lesson: `${subject.subject.slice(0, 3)}-${index + 1}`,
-      grade,
-    }))
-  )
-
-  return timeline.slice(-12)
-}
+const upcomingEvents = [
+  { id: 1, title: 'Общешкольное родительское собрание', date: '15 Октября, 18:00', type: 'school' },
+  { id: 2, title: 'Олимпиада по физике (Городской этап)', date: '21 Октября, 09:00', type: 'academic' },
+  { id: 3, title: 'Спортивные соревнования (Волейбол)', date: '25 Октября, 15:30', type: 'sport' },
+]
 
 export default function ParentDashboardPage() {
-  const [studentData, setStudentData] = useState<StudentGradesResponse | null>(null)
-  const [events, setEvents] = useState<EventRow[]>(fallbackEvents)
-  const [loading, setLoading] = useState(true)
-  const [teacherEmail, setTeacherEmail] = useState('class.teacher@aqbobek.uz')
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let active = true
-
-    const loadDashboardData = async () => {
-      setLoading(true)
-      setError('')
-
-      try {
-        const gradesResponse = await fetch('/api/grades?studentId=st-001', { cache: 'no-store' })
-
-        if (gradesResponse.ok) {
-          const gradesJson = (await gradesResponse.json()) as StudentGradesResponse
-          if (active) setStudentData(gradesJson)
-        } else if (active) {
-          setError('Не удалось загрузить оценки. Отображаются данные по умолчанию.')
-        }
-
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        if (supabaseUrl && supabaseAnonKey) {
-          const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-          const { data: eventsData } = await supabase
-            .from('events')
-            .select('id, title, date, location')
-            .order('date', { ascending: true })
-            .limit(5)
-
-          if (active && Array.isArray(eventsData) && eventsData.length > 0) {
-            setEvents(eventsData as EventRow[])
-          }
-
-          const { data: teacherData } = await supabase
-            .from('teachers')
-            .select('email')
-            .eq('class_name', '10А')
-            .maybeSingle()
-
-          if (active && teacherData?.email) {
-            setTeacherEmail(String(teacherData.email))
-          }
-        }
-      } catch {
-        if (active) {
-          setError('Сервис временно недоступен. Используются резервные данные.')
-        }
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-
-    void loadDashboardData()
-
-    return () => {
-      active = false
-    }
-  }, [])
-
-  const childName = studentData?.student ?? 'Алибек Сейтов'
-  const childClass = studentData?.class ?? '10А'
-  const childRank = studentData ? `${studentData.rank} из ${studentData.totalStudents}` : '7 из 28'
-  const monthlyChartData = useMemo(
-    () => flattenForMonthlyChart(studentData?.grades ?? []),
-    [studentData?.grades]
-  )
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 p-4 md:p-6">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-        <Card className="border-blue-200 bg-white/95 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl text-slate-900">Успеваемость вашего ребёнка</CardTitle>
-            <CardDescription>Еженедельный срез прогресса и школьной активности</CardDescription>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 p-4 md:p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        
+        {/* Заголовок */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">Родитель</h1>
+            <p className="mt-1 font-medium text-blue-700/80">Наблюдение за Алибеком Сейтовым, 10А</p>
+          </div>
+        </div>
+
+        {/* AI Выжимка */}
+        <Card className="border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50 shadow-md ring-1 ring-indigo-100">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-indigo-900">
+              <Sparkles className="h-5 w-5 text-indigo-600" />
+              AI Выжимка недели
+            </CardTitle>
           </CardHeader>
+          <CardContent>
+            <div className="rounded-lg bg-white/70 p-5 shadow-sm backdrop-blur-sm">
+              <p className="text-slate-700 leading-relaxed">
+                На этой неделе Алибек показал <strong>отличные результаты по математике и биологии</strong>, закрыв старые долги. 
+                Однако мы зафиксировали спад успеваемости по физике (две тройки подряд) и 1 пропуск по истории. 
+                <br /><br />
+                <strong>💡 Рекомендация:</strong> Убедитесь, что Алибек уделит время подготовке к субботней лабораторной по физике. В целом, динамика среднего балла остаётся положительной (4.2).
+              </p>
+            </div>
+          </CardContent>
         </Card>
 
-        <section className="grid gap-6 lg:grid-cols-3">
-          <Card>
+        {/* Сетка графиков и мероприятий */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          
+          {/* График оценок */}
+          <Card className="border-blue-100 bg-white/90 shadow-sm">
             <CardHeader>
-              <CardTitle>Профиль ученика</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-14 w-14 border border-blue-200">
-                  <AvatarImage src="" alt={childName} />
-                  <AvatarFallback className="bg-blue-600 text-white">
-                    {childName.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="font-semibold text-slate-900">{childName}</p>
-                  <p className="text-sm text-slate-600">Класс: {childClass}</p>
-                </div>
-              </div>
-              <div className="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
-                Рейтинг в классе: <span className="font-semibold">{childRank}</span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-2 border-emerald-200 bg-emerald-50/70">
-            <CardHeader>
-              <CardTitle>AI-выжимка недели</CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm leading-6 text-slate-800">
-              ✅ {childName} отлично справился с математикой (5, 5). ⚠️ Обратите внимание на физику — три тройки
-              подряд. 💡 Рекомендация: обсудите подготовку к СОЧ и выделите 2 дня в неделю на разбор задач.
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>График оценок за месяц</CardTitle>
-              <CardDescription>Последние 12 оценок по основным предметам</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-blue-900">
+                <TrendingUp className="h-5 w-5 text-blue-600" />
+                Динамика среднего балла
+              </CardTitle>
+              <CardDescription className="text-blue-900/60">Изменение за последние 6 недель</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-72 w-full">
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyChartData}>
-                    <XAxis dataKey="lesson" />
-                    <YAxis domain={[2, 5]} ticks={[2, 3, 4, 5]} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="grade" stroke="#2563eb" strokeWidth={3} dot={{ r: 4 }} />
+                  <LineChart data={gpaData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="week" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis domain={[3, 5]} stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      labelStyle={{ color: '#0f172a', fontWeight: 'bold', marginBottom: '4px' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="gpa" 
+                      name="Средний балл"
+                      stroke="#4f46e5" 
+                      strokeWidth={3}
+                      dot={{ r: 4, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff' }}
+                      activeDot={{ r: 6, strokeWidth: 0, fill: '#4f46e5' }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          {/* Ближайшие мероприятия */}
+          <Card className="border-blue-100 bg-white/90 shadow-sm">
             <CardHeader>
-              <CardTitle>Связь с учителем</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-blue-900">
+                <Calendar className="h-5 w-5 text-blue-600" />
+                Ближайшие мероприятия
+              </CardTitle>
+              <CardDescription className="text-blue-900/60">Школьные и академические события Алибека</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                className="w-full bg-blue-700 hover:bg-blue-800"
-                onClick={() => window.alert(`Email учителя: ${teacherEmail}`)}
-              >
-                Написать учителю
-              </Button>
+              <div className="space-y-4">
+                {upcomingEvents.map((event) => (
+                  <div key={event.id} className="flex items-start gap-4 rounded-lg border border-blue-50 bg-white p-4 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
+                    <div 
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full 
+                        ${event.type === 'academic' ? 'bg-indigo-100 text-indigo-600' : 
+                          event.type === 'sport' ? 'bg-green-100 text-green-600' : 
+                          'bg-amber-100 text-amber-600'}`}
+                    >
+                      {event.type === 'academic' ? <Info className="h-5 w-5" /> : 
+                       event.type === 'sport' ? <Sparkles className="h-5 w-5" /> : 
+                       <Clock className="h-5 w-5" />}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <p className="font-semibold text-blue-950">{event.title}</p>
+                      <p className="flex items-center gap-1.5 text-sm font-medium text-slate-500">
+                        <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                        {event.date}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
-        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Ближайшие мероприятия школы</CardTitle>
-            <CardDescription>Данные из таблицы events</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {events.map((event) => (
-                <div key={String(event.id)} className="rounded-lg border border-slate-200 p-3">
-                  <p className="font-medium text-slate-900">{event.title}</p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    {new Date(event.date).toLocaleDateString('ru-RU')}
-                    {event.location ? ` • ${event.location}` : ''}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {error ? (
-          <Card className="border-yellow-300 bg-yellow-50">
-            <CardContent className="p-4 text-sm text-yellow-800">{error}</CardContent>
-          </Card>
-        ) : null}
-
-        {loading ? (
-          <div className="fixed bottom-4 right-4 rounded-md bg-slate-900 px-3 py-2 text-xs text-white shadow-lg">
-            Загружаем данные...
-          </div>
-        ) : null}
+        </div>
       </div>
     </main>
   )

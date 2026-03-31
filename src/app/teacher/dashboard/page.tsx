@@ -1,304 +1,191 @@
 'use client'
 
-import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileText, ShieldAlert, UserRound } from 'lucide-react'
-import { PolarAngleAxis, PolarGrid, Radar, RadarChart, ResponsiveContainer, Tooltip } from 'recharts'
-import { Button } from '@/components/ui/button'
+import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Loader2, FileText, ShieldAlert, ShieldCheck, Shield } from 'lucide-react'
 
-type Trend = 'up' | 'down' | 'stable'
-
-type SubjectItem = {
-  subject: string
+type Student = {
+  id: string
+  name: string
   grades: number[]
-  average: number
-  trend: Trend
 }
 
-type ClassStudent = {
-  studentId: string
-  student: string
-  class: string
-  average: number
-  rank: number
-  totalPoints: number
-  subjects: SubjectItem[]
-}
-
-type RadarItem = {
-  subject: string
-  average: number
-}
-
-type ClassApiResponse = {
-  className: string
-  totalStudents: number
-  students: ClassStudent[]
-  classSubjectRadar?: RadarItem[]
-}
-
-type RiskStatus = 'red' | 'yellow' | 'green'
-
-const fallbackRadar: RadarItem[] = [
-  { subject: 'Математика', average: 4.1 },
-  { subject: 'Физика', average: 3.6 },
-  { subject: 'История', average: 4.4 },
-  { subject: 'Химия', average: 3.8 },
-  { subject: 'Биология', average: 4.3 },
-  { subject: 'Русский язык', average: 3.6 },
+const studentsData: Student[] = [
+  { id: '1', name: 'Алибек Сейтов', grades: [4, 5, 4, 3, 5] },
+  { id: '2', name: 'Дильназ Муратова', grades: [5, 5, 5, 5, 4] },
+  { id: '3', name: 'Ерасыл Нурланов', grades: [3, 3, 2, 3, 3] },
+  { id: '4', name: 'Аружан Сапарова', grades: [4, 4, 3, 4, 4] },
+  { id: '5', name: 'Максат Ким', grades: [5, 4, 5, 4, 5] },
+  { id: '6', name: 'Зарина Омарова', grades: [2, 3, 3, 2, 3] },
+  { id: '7', name: 'Нуржан Каримов', grades: [3, 4, 3, 4, 3] },
+  { id: '8', name: 'Айдана Искакова', grades: [5, 5, 5, 5, 5] },
+  { id: '9', name: 'Тимур Ахметов', grades: [4, 3, 4, 3, 4] },
+  { id: '10', name: 'Дария Оспанова', grades: [3, 4, 4, 5, 4] },
 ]
 
-function hasTwoDropStreak(grades: number[]) {
-  if (grades.length < 3) return false
-  for (let i = 2; i < grades.length; i += 1) {
-    if (grades[i - 2] > grades[i - 1] && grades[i - 1] > grades[i]) {
-      return true
-    }
-  }
-  return false
-}
-
-function getStudentRisk(student: ClassStudent): { status: RiskStatus; reason: string } {
-  const allGrades = student.subjects.flatMap((subject) => subject.grades)
-  const hasBadGrade = allGrades.some((grade) => grade <= 2)
-  const hasConsecutiveDrop = student.subjects.some((subject) => hasTwoDropStreak(subject.grades))
-
-  if (student.average < 3 || hasConsecutiveDrop) {
-    return { status: 'red', reason: 'Средний балл ниже 3 или серия падения оценок' }
-  }
-
-  if ((student.average >= 3 && student.average <= 3.5) || hasBadGrade) {
-    return { status: 'yellow', reason: 'Пограничный средний балл или единичная плохая оценка' }
-  }
-
-  return { status: 'green', reason: 'Успеваемость в норме' }
-}
-
-function getRiskStyle(status: RiskStatus) {
-  if (status === 'red') {
-    return {
-      label: 'Красный риск',
-      dot: 'bg-red-500',
-      row: 'bg-red-50 border-red-200',
-      Icon: ShieldAlert,
-    }
-  }
-  if (status === 'yellow') {
-    return {
-      label: 'Желтый риск',
-      dot: 'bg-yellow-500',
-      row: 'bg-yellow-50 border-yellow-200',
-      Icon: AlertTriangle,
-    }
-  }
-  return {
-    label: 'Зеленая зона',
-    dot: 'bg-emerald-500',
-    row: 'bg-emerald-50 border-emerald-200',
-    Icon: CheckCircle2,
-  }
-}
-
 export default function TeacherDashboardPage() {
-  const [students, setStudents] = useState<ClassStudent[]>([])
-  const [className, setClassName] = useState('10А')
-  const [radarData, setRadarData] = useState<RadarItem[]>(fallbackRadar)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [reportText, setReportText] = useState('')
-  const [reportLoading, setReportLoading] = useState(false)
-
-  useEffect(() => {
-    let active = true
-
-    const loadClassData = async () => {
-      setLoading(true)
-      setError('')
-
-      try {
-        const response = await fetch('/api/grades/class?className=10А', { cache: 'no-store' })
-        if (!response.ok) throw new Error('Failed to fetch class data')
-
-        const data = (await response.json()) as ClassApiResponse
-        if (!active) return
-
-        setStudents(data.students || [])
-        setClassName(data.className || '10А')
-        setRadarData(data.classSubjectRadar?.length ? data.classSubjectRadar : fallbackRadar)
-      } catch {
-        if (!active) return
-        setError('Не удалось загрузить данные класса. Показываются резервные данные графика.')
-      } finally {
-        if (active) setLoading(false)
-      }
-    }
-
-    void loadClassData()
-
-    return () => {
-      active = false
-    }
-  }, [])
-
-  const teacherName = 'Айжан Нуртаева'
-  const teacherSubjects = 'Математика, Физика'
-
-  const riskRows = useMemo(() => {
-    return students.map((student) => ({
-      ...student,
-      risk: getStudentRisk(student),
-    }))
-  }, [students])
+  const [aiReport, setAiReport] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleGenerateReport = async () => {
-    setReportLoading(true)
-    setReportText('')
-
+    setLoading(true)
+    setError(null)
     try {
-      const response = await fetch('/api/ai-report', {
+      const res = await fetch('/api/ai-report', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
-          className,
-          students: riskRows.map((item) => ({
-            name: item.student,
-            average: item.average,
-            risk: item.risk.status,
-          })),
+          teacher: 'Айгуль',
+          subject: 'Математика',
+          students: studentsData,
         }),
       })
 
-      if (!response.ok) {
-        throw new Error('AI report request failed')
+      if (!res.ok) {
+        throw new Error('Ошибка генерации отчёта')
       }
 
-      const data = (await response.json()) as { report?: string; text?: string; message?: string }
-      setReportText(
-        data.report ||
-          data.text ||
-          data.message ||
-          'Отчет сформирован. Класс показывает стабильную динамику, но требуется внимание к группе риска.'
-      )
-    } catch {
-      setReportText(
-        'AI-отчет временно недоступен. Предварительный вывод: 2 ученика требуют срочной поддержки, 1 ученик в зоне внимания, остальной класс показывает стабильный прогресс.'
-      )
+      const data = await res.json()
+      // Fallbacks in case the API shape varies
+      const text = data.report || data.message || data.result || data.text || JSON.stringify(data)
+      setAiReport(text)
+    } catch (err: any) {
+      setError(err.message || 'Произошла непредвиденная ошибка')
     } finally {
-      setReportLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 p-4 md:p-6">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-        <Card className="border-blue-200 bg-white/90 shadow-lg">
-          <CardContent className="flex items-center justify-between gap-4 p-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">Добро пожаловать, {teacherName}</h1>
-              <p className="mt-1 text-sm text-slate-600">Предметы: {teacherSubjects}</p>
-            </div>
-            <div className="rounded-full bg-blue-100 p-3 text-blue-700">
-              <UserRound className="h-6 w-6" />
-            </div>
-          </CardContent>
-        </Card>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 p-4 md:p-6">
+      <div className="mx-auto max-w-7xl space-y-6">
+        
+        {/* Заголовок страницы */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-blue-900">Учитель Айгуль — Математика</h1>
+            <p className="mt-1 font-medium text-blue-700/80">Панель управления классом</p>
+          </div>
+          <Button 
+            onClick={handleGenerateReport} 
+            disabled={loading}
+            className="flex items-center gap-2 bg-indigo-600 font-medium text-white shadow-md transition-all hover:bg-indigo-700"
+          >
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            Сгенерировать отчёт класса
+          </Button>
+        </div>
 
-        <section className="grid gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Радар рисков класса {className}</CardTitle>
-              <CardDescription>Цвет показывает уровень академического риска по каждому ученику</CardDescription>
+        {/* Результат AI отчёта */}
+        {(aiReport || error) && (
+          <Card className="border-indigo-200 bg-white/80 shadow-sm ring-1 ring-indigo-100 backdrop-blur-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg text-indigo-900">
+                <FileText className="h-5 w-5 text-indigo-600" />
+                Отчёт класса от AI
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {riskRows.map((student) => {
-                  const style = getRiskStyle(student.risk.status)
-                  return (
-                    <Link
-                      href={`/profile/${student.studentId}`}
-                      key={student.studentId}
-                      className={`block rounded-lg border p-3 transition hover:shadow-md ${style.row}`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-slate-900">{student.student}</p>
-                          <p className="text-xs text-slate-600">{student.risk.reason}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className={`h-3 w-3 rounded-full ${style.dot}`} />
-                          <style.Icon className="h-4 w-4 text-slate-700" />
-                        </div>
-                      </div>
-                      <div className="mt-2 flex items-center justify-between text-sm">
-                        <span className="text-slate-600">{style.label}</span>
-                        <span className="font-medium text-slate-900">Средний балл: {student.average}</span>
-                      </div>
-                    </Link>
-                  )
-                })}
-                {!riskRows.length && !loading ? (
-                  <div className="rounded-lg border border-dashed p-4 text-sm text-slate-500">
-                    Список учеников пока пуст.
-                  </div>
-                ) : null}
-              </div>
+              {error ? (
+                <p className="font-medium text-red-600">{error}</p>
+              ) : (
+                <div className="prose prose-sm max-w-none text-slate-700">
+                  <p className="whitespace-pre-wrap">{aiReport}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
+        )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-blue-700" />
-                AI-отчёт
-              </CardTitle>
-              <CardDescription>Сводный анализ по классу для педсовета</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Button
-                onClick={handleGenerateReport}
-                className="w-full bg-blue-700 hover:bg-blue-800"
-                disabled={reportLoading}
-              >
-                {reportLoading ? 'Генерируем...' : 'Сгенерировать отчёт класса'}
-              </Button>
-              <div className="min-h-32 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-slate-700">
-                {reportText || 'Нажмите кнопку, чтобы получить текстовый отчёт по классу.'}
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <Card>
+        {/* Таблица учеников (основной контент) */}
+        <Card className="border-blue-100 bg-white/90 shadow-sm">
           <CardHeader>
-            <CardTitle>RadarChart успеваемости класса</CardTitle>
-            <CardDescription>Средние баллы по предметам</CardDescription>
+            <CardTitle className="text-blue-900">Успеваемость: 10А класс</CardTitle>
+            <CardDescription className="text-blue-900/60">
+              Цветовые индикаторы: Зелёный (отлично/хорошо), Жёлтый (в зоне риска < 4), Красный (критически низкий < 3.5)
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="h-80 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData}>
-                  <PolarGrid />
-                  <PolarAngleAxis dataKey="subject" />
-                  <Tooltip />
-                  <Radar
-                    name="Средний балл"
-                    dataKey="average"
-                    stroke="#2563eb"
-                    fill="#3b82f6"
-                    fillOpacity={0.35}
-                  />
-                </RadarChart>
-              </ResponsiveContainer>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-blue-100 text-left text-blue-900/60">
+                    <th className="px-4 py-3 font-medium">Ученик</th>
+                    <th className="px-4 py-3 font-medium">Оценки</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-right font-medium">Ср. балл</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-center font-medium">Статус</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {studentsData.map((student) => {
+                    const avgStr = (student.grades.reduce((a, b) => a + b, 0) / student.grades.length).toFixed(1)
+                    const avg = parseFloat(avgStr)
+                    
+                    // Логика цвета индикатора
+                    const isCritical = avg < 3.5
+                    const isWarning = avg >= 3.5 && avg < 4
+                    const isGood = avg >= 4
+
+                    return (
+                      <tr key={student.id} className="border-b border-blue-50 last:border-none">
+                        <td className="px-4 py-4 font-medium text-blue-950">{student.name}</td>
+                        <td className="px-4 py-4">
+                          <div className="flex flex-wrap gap-1.5">
+                            {student.grades.map((grade, gIdx) => (
+                              <span 
+                                key={gIdx} 
+                                className={`inline-flex h-6 w-6 items-center justify-center rounded-md text-xs font-medium
+                                  ${
+                                    grade === 5 ? 'bg-green-100 text-green-700' : 
+                                    grade === 4 ? 'bg-blue-100 text-blue-700' : 
+                                    grade === 3 ? 'bg-amber-100 text-amber-700' :
+                                    'bg-red-100 text-red-700'
+                                  }
+                                `}
+                              >
+                                {grade}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-right font-semibold text-blue-900">
+                          {avgStr}
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex justify-center">
+                            {isCritical && (
+                              <div className="flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 border border-red-200">
+                                <ShieldAlert className="h-3.5 w-3.5" />
+                                <span>Риск</span>
+                              </div>
+                            )}
+                            {isWarning && (
+                              <div className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 border border-amber-200">
+                                <Shield className="h-3.5 w-3.5" />
+                                <span>Внимание</span>
+                              </div>
+                            )}
+                            {isGood && (
+                              <div className="flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700 border border-green-200">
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                <span>Норма</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </CardContent>
         </Card>
 
-        {error ? (
-          <Card className="border-yellow-300 bg-yellow-50">
-            <CardContent className="p-4 text-sm text-yellow-800">{error}</CardContent>
-          </Card>
-        ) : null}
       </div>
     </main>
   )
