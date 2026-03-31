@@ -46,38 +46,39 @@ export default function LoginPage() {
       return
     }
 
-    const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (signInError || !authData.user) {
-      setErrorMessage(signInError?.message ?? 'Не удалось выполнить вход. Попробуйте снова.')
+    if (error) {
+      setErrorMessage(error.message)
       setLoading(false)
       return
     }
 
-    const { data: profile, error: profileError } = await supabase
+    if (!data.user) {
+      setErrorMessage('Не удалось выполнить вход. Попробуйте снова.')
+      setLoading(false)
+      return
+    }
+
+    // Получи роль из profiles
+    const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', authData.user.id)
+      .eq('id', data.user.id)
       .single()
 
-    if (profileError || !profile?.role) {
-      setErrorMessage('Профиль пользователя не найден или не содержит роль.')
-      setLoading(false)
-      return
-    }
+    const role = profile?.role
 
-    const target = roleRedirectMap[profile.role as UserRole]
+    if (role === 'admin') router.push('/admin/dashboard')
+    else if (role === 'teacher') router.push('/teacher/dashboard')
+    else if (role === 'student') router.push('/student/dashboard')
+    else if (role === 'parent') router.push('/parent/dashboard')
+    else router.push('/dashboard')
 
-    if (!target) {
-      setErrorMessage('Неизвестная роль пользователя. Обратитесь к администратору.')
-      setLoading(false)
-      return
-    }
-
-    router.replace(target)
+    setLoading(false)
   }
 
   return (
