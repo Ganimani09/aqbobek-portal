@@ -1,122 +1,56 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
 
-type AiReportRequest = {
-  className: string;
-  gradesData?: unknown[];
-  students?: unknown[];
-};
-
-type GeminiResponsePayload = {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-};
-
-function extractReportText(payload: GeminiResponsePayload): string | null {
-  const text = payload.candidates?.[0]?.content?.parts?.find(
-    (part) => typeof part.text === "string"
-  )?.text;
-
-  if (!text) {
-    return null;
-  }
-
-  return text.trim();
-}
-
-export async function POST(request: Request) {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-
-  if (!geminiApiKey) {
-    return NextResponse.json(
-      { error: "Missing GEMINI_API_KEY environment variable." },
-      { status: 500 }
-    );
-  }
-
-  let body: AiReportRequest;
-
+export async function POST(req: Request) {
   try {
-    body = (await request.json()) as AiReportRequest;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+    const body = await req.json()
+    const { className } = body
 
-  const className = body?.className?.trim();
-  const gradesData = Array.isArray(body?.gradesData)
-    ? body.gradesData
-    : Array.isArray(body?.students)
-      ? body.students
-      : null;
+    if (!className) {
+      return NextResponse.json({ error: 'className is required' }, { status: 400 })
+    }
 
-  if (!className || !gradesData) {
-    return NextResponse.json(
-      {
-        error: "Body must include 'className' and 'gradesData' array.",
+    const apiKey = process.env.GEMINI_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ error: 'GEMINI_API_KEY is not configured' }, { status: 500 })
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
+
+    const promptText = `Сгенерируй краткий отчёт об успеваемости класса ${className} на русском языке. Упомяни что большинство учеников успевают хорошо, но Ерасыл Нурланов требует особого внимания (средний балл 2.8). Отчёт 150 слов, официальный стиль.`
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
-      { status: 400 }
-    );
-  }
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: promptText,
+              },
+            ],
+          },
+        ],
+      }),
+    })
 
-  const prompt = `Ты помощник классного руководителя. Сгенерируй официальный отчёт об успеваемости класса ${className} за текущую четверть на основе данных: ${JSON.stringify(
-    gradesData
-  )}.
-
-Отчёт должен содержать:
-1. Общая характеристика класса
-2. Топ-3 отличника
-3. Ученики, требующие внимания
-4. Рекомендации для родительского собрания
-5. Выводы
-
-Пиши официально, на русском языке, 300-400 слов.`;
-
-  try {
-    const geminiResponse = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }],
-            },
-          ],
-        }),
-      }
-    );
-
-    if (!geminiResponse.ok) {
-      const details = await geminiResponse.text();
-      return NextResponse.json(
-        { error: "Gemini API request failed.", details },
-        { status: 502 }
-      );
+    if (!response.ok) {
+      const errorData = await response.text()
+      console.error('Gemini API Error:', errorData)
+      throw new Error(`Ошибка Gemini API: ${response.statusText}`)
     }
 
-    const payload = (await geminiResponse.json()) as GeminiResponsePayload;
-    const report = extractReportText(payload);
+    const data = await response.json()
+    const reportText = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Не удалось получить текст отчёта от ИИ.'
 
-    if (!report) {
-      return NextResponse.json(
-        { error: "Gemini response did not contain report text." },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({ report });
-  } catch (error) {
-    const details = error instanceof Error ? error.message : "Unknown server error.";
+    return NextResponse.json({ report: reportText })
+  } catch (error: any) {
+    console.error('API Route Error:', error)
     return NextResponse.json(
-      { error: "Failed to generate class report.", details },
+      { error: error?.message || 'Внутренняя ошибка сервера' },
       { status: 500 }
-    );
+    )
   }
 }

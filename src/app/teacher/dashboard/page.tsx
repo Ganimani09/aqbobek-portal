@@ -39,6 +39,7 @@ export default function TeacherDashboardPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          className: '10А',
           teacher: 'Айгуль',
           subject: 'Математика',
           students: studentsData,
