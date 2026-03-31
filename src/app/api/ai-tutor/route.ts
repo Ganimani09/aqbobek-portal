@@ -1,154 +1,48 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
 
-type RiskSubject = {
-  subject: string;
-  riskPercent: number;
-  reason: string;
-};
-
-type Recommendation = {
-  subject: string;
-  action: string;
-  resources: string[];
-};
-
-type AiTutorResponse = {
-  riskSubjects: RiskSubject[];
-  strengths: string[];
-  recommendations: Recommendation[];
-  weeklyPlan: string;
-  motivationMessage: string;
-};
-
-type AiTutorRequest = {
-  grades: unknown;
-  studentName: string;
-};
-
-function extractTextFromGeminiPayload(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-
-  const candidates = (payload as { candidates?: unknown[] }).candidates;
-  if (!Array.isArray(candidates) || candidates.length === 0) return null;
-
-  const firstCandidate = candidates[0] as {
-    content?: { parts?: Array<{ text?: string }> };
-  };
-  const parts = firstCandidate?.content?.parts;
-  if (!Array.isArray(parts) || parts.length === 0) return null;
-
-  const text = parts.find((part) => typeof part?.text === "string")?.text;
-  return text ?? null;
-}
-
-function parseJsonFromModelText(text: string): AiTutorResponse {
-  const cleaned = text
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
-
-  const parsed = JSON.parse(cleaned) as Partial<AiTutorResponse>;
-
-  if (
-    !Array.isArray(parsed.riskSubjects) ||
-    !Array.isArray(parsed.strengths) ||
-    !Array.isArray(parsed.recommendations) ||
-    typeof parsed.weeklyPlan !== "string" ||
-    typeof parsed.motivationMessage !== "string"
-  ) {
-    throw new Error("Model returned JSON with invalid schema.");
-  }
-
-  return parsed as AiTutorResponse;
-}
-
-export async function POST(request: Request) {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-
-  if (!geminiApiKey) {
-    return NextResponse.json(
-      { error: "Missing GEMINI_API_KEY environment variable." },
-      { status: 500 }
-    );
-  }
-
-  let payload: AiTutorRequest;
-
+export async function POST() {
   try {
-    payload = (await request.json()) as AiTutorRequest;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
+    const apiKey = process.env.GEMINI_API_KEY
+    
+    if (!apiKey) {
+      return NextResponse.json({ error: 'No API key' }, { status: 500 })
+    }
 
-  if (!payload?.studentName || !payload?.grades) {
-    return NextResponse.json(
-      { error: "Body must include 'studentName' and 'grades'." },
-      { status: 400 }
-    );
-  }
-
-  const prompt = `Ты школьный AI-тьютор. Ученик ${payload.studentName} имеет следующие оценки: ${JSON.stringify(
-    payload.grades
-  )}.
-Проанализируй и дай ответ СТРОГО в формате JSON:
-{
-  riskSubjects: [{subject: string, riskPercent: number, reason: string}],
-  strengths: [string],
-  recommendations: [{subject: string, action: string, resources: [string]}],
-  weeklyPlan: string,
-  motivationMessage: string
-}
-Отвечай только на русском языке.`;
-
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [{ text: prompt }],
-            },
-          ],
-        }),
+          contents: [{
+            parts: [{
+              text: `Ты школьный AI-тьютор. Ученик Алибек Сейтов, 10А класс.
+              Оценки: Математика [4,5,4,3,5] среднее 4.2, Физика [3,3,4,3,2] среднее 3.0, 
+              История [5,5,4,5,4] среднее 4.6, Химия [4,3,4,4,3] среднее 3.6, Биология [5,5,5,4,5] среднее 4.8.
+              
+              Дай анализ на русском языке в формате:
+              1. Сильные предметы (1-2 предложения)
+              2. Предметы риска (1-2 предложения) 
+              3. Конкретные рекомендации (3 пункта)
+              4. Мотивационное сообщение (1 предложение)
+              
+              Максимум 150 слов. Будь конкретным и добрым.`
+            }]
+          }]
+        })
       }
-    );
+    )
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json(
-        {
-          error: "Gemini API request failed.",
-          details: errorText,
-        },
-        { status: 502 }
-      );
+    const data = await res.json()
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+
+    if (!text) {
+      return NextResponse.json({ error: 'Empty response from Gemini' }, { status: 500 })
     }
 
-    const geminiPayload = (await response.json()) as unknown;
-    const modelText = extractTextFromGeminiPayload(geminiPayload);
-
-    if (!modelText) {
-      return NextResponse.json(
-        { error: "Gemini response does not contain text output." },
-        { status: 502 }
-      );
-    }
-
-    const parsed = parseJsonFromModelText(modelText);
-    return NextResponse.json(parsed);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Unknown server error.";
-    return NextResponse.json(
-      {
-        error: "Failed to process AI tutor request.",
-        details: message,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ analysis: text })
+  } catch (err) {
+    console.error('AI tutor error:', err)
+    return NextResponse.json({ error: 'Failed to get analysis' }, { status: 500 })
   }
 }
