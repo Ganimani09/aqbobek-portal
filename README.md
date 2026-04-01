@@ -18,6 +18,9 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+<img width="923" height="273" alt="{08418693-13FB-45CB-AD27-C4C2FF6E4EE6}" src="https://github.com/user-attachments/assets/a3cf2676-6e66-4cf4-ab63-bf031662ec71" />
+
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
