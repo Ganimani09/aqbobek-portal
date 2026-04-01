@@ -25,3 +25,6 @@ export function createServerClient() {
 
 const { supabaseUrl, supabaseAnonKey } = getSupabaseEnv();
 export const browserClient = createClient(supabaseUrl, supabaseAnonKey);
+
+// Re-export as `supabase` for backwards compatibility with existing pages
+export const supabase = browserClient;

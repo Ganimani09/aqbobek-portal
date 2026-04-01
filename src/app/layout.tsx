@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'School Management App',
-  description: 'Manage your school with ease',
+  title: 'Aqbobek Lyceum Portal',
+  description: 'Школьная система управления лицея Aqbobek',
 }
 
 export default function RootLayout({
@@ -26,14 +26,14 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
         <AuthProvider>
           <div className="flex h-screen">
             <Sidebar />
-            <main className="flex-1 overflow-y-auto p-8">
+            <main className="flex-1 overflow-y-auto">
               {children}
             </main>
             <Toaster/>
@@ -43,4 +43,3 @@ export default function RootLayout({
     </html>
   )
 }
-
